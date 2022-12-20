@@ -69,4 +69,14 @@ class Chat extends Model
             }
         );
     }
+
+    public function unreadMessages(): Attribute
+    {
+        return new Attribute(
+            get: function () {
+                // Recuperar el último archivo insertado en mi tabla
+                return $this->messages()->where('user_id', '!=', auth()->id())->where('is_read', false)->count();
+            }
+        );
+    }
 }

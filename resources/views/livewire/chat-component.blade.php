@@ -1,4 +1,4 @@
-<div class="bg-gray-50 rounded-lg shadow border border-gray-200 overflow-hidden">
+<div x-data="data()" class="bg-gray-50 rounded-lg shadow border border-gray-200 overflow-hidden">
     <div class="grid grid-cols-3 divide-x divide-gray-200">
 
         <div class="col-span-1">
@@ -46,14 +46,26 @@
                             </figure>
                             <div class="w-[calc(100%-4rem)] py-4 border-b border-gray-200">
                                 <div class="flex justify-between items-center">
-                                    <p class="text-gray-800 truncate">{{ $chatItem->name }}</p>
-                                    <p class="text-gray-600 text-xs ml-2">
-                                        {{-- {{ $chatItem->messages->last()->created_at->format('h:i A') }}</p> --}}
-                                        {{ $chatItem->last_message_at->format('d-m-y h:i A') }}</p>
+                                    <div>
+                                        <p class="text-gray-800 truncate">{{ $chatItem->name }}</p>
+                                        <p class="text-sm text-gray-700 mt-1 truncate">
+                                            {{ $chatItem->messages->last()->body }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p class="text-gray-600 text-xs ml-2">
+                                            {{-- {{ $chatItem->messages->last()->created_at->format('h:i A') }}</p> --}}
+                                            {{ $chatItem->last_message_at->format('h:i A') }}</p>
+
+                                        @if ($chatItem->unread_messages > 0)
+                                            <span
+                                                class="inline-flex items-center justify-center px-2 py-1 mr-2 text-xs font-bold leading-none text-teal-100 bg-teal-600 rounded-full">
+                                                {{ $chatItem->unread_messages }}
+                                            </span>
+                                        @endif
+
+                                    </div>
                                 </div>
-                                <p class="text-sm text-gray-700 mt-1 truncate">
-                                    {{ $chatItem->messages->last()->body }}
-                                </p>
                             </div>
                         </div>
                     @endforeach
@@ -81,7 +93,16 @@
                         @else
                             <p class="text-gray-800">{{ $contactChat->name }}</p>
                         @endif
-                        <p class="text-green-500 text-xs">Online</p>
+                        <p class="text-gray-600 text-xs" x-show="chat_id == typingChatId">Escribiendo ... </p>
+
+                        @if ($this->active)
+                            <p class="text-xs text-green-500" x-show="chat_id != typingChatId" wire:key="online">Online
+                            </p>
+                        @else
+                            <p class="text-xs text-red-600" x-show="chat_id != typingChatId" wire:key="offline">Offline
+                            </p>
+                        @endif
+
                     </div>
                 </div>
                 <div class="h-[calc(100vh-11rem)] overflow-auto px-3 py-2">
@@ -97,10 +118,22 @@
                                 <p
                                     class="{{ $message->user_id == auth()->id() ? 'text-right' : '' }}text-xs text-gray-600 mt-1">
                                     {{ $message->created_at->format('d-m-y h:i A') }}
+
+                                    @if ($message->user_id == auth()->id())
+                                        @if ($message->is_read)
+                                            <i class="fa-solid fa-check-double ml-2 text-blue-600"></i>
+                                        @else
+                                            <i class="fa-solid fa-check ml-2 text-gray-600"></i>
+                                        @endif
+                                    @endif
+
                                 </p>
                             </div>
                         </div>
                     @endforeach
+
+                    <span id="finish"></span>
+
                 </div>
                 <form wire:submit.prevent="sendMessage()" class="flex items-center px-4 h-16 bg-gray-100">
                     <x-jet-input wire:model="bodyMessage" type="text" class="flex-1"
@@ -124,4 +157,32 @@
         </div>
 
     </div>
+    @push('script')
+        <script>
+            function data() {
+                return {
+                    //sincronizando con livewire y alpine
+                    chat_id: @entangle('chat_id'),
+                    typingChatId: null,
+                    init() {
+                        Echo.private('App.Models.User.' + {{ auth()->id() }})
+                            .notification((notification) => {
+                                if (notification.type == 'App\\Notifications\\UserTyping') {
+                                    // console.log('Escribiendo ...');
+                                    this.typingChatId = notification.chat_id;
+
+                                    setTimeout(() => {
+                                        this.typingChatId = null;
+                                    }, 3000);
+                                }
+                            });
+                    }
+                }
+            }
+
+            Livewire.on('scrollIntoView', function(message) {
+                document.getElementById('finish').scrollIntoView(true);
+            });
+        </script>
+    @endpush
 </div>
